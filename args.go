@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -9,8 +10,8 @@ import (
 
 const (
 	appName   = "selcvsdt"
-	usagejson = "output datetime params json file."
-	usage     = `%s selects lines from a csv file by specified range of date and time items.
+	usageJSON = "output datetime params json file."
+	usageMsg  = `%s selects lines from a csv file by specified range of date and time items.
 
 Default columns on the csv file is the date column is 0 and the time column is 1.
 
@@ -37,18 +38,26 @@ Each arguments are:
 `
 )
 
-// Args struct.
-type args struct {
-	Csvfile  string
-	Basetime time.Time
-	Incdays  int
-	Outpath  string
+var (
+	// ErrUsage represents usage.
+	ErrUsage = errors.New("usage")
+)
+
+func usage() {
+	fmt.Fprintf(os.Stderr, usageMsg, appName, appName, appName, usageJSON)
 }
 
-func (args *args) validArgs() error {
+// Args struct.
+type args struct {
+	csvfile  string
+	basetime time.Time
+	incdays  int
+	outpath  string
+}
+
+func (args *args) validArgs(fmtArg string) error {
 	if ln := len(os.Args); ln != 4 && ln != 5 {
-		fmt.Fprintf(os.Stderr, usage, appName, appName, appName, usagejson)
-		return nil
+		return ErrUsage
 	}
 
 	csvfile := os.Args[1]
@@ -56,7 +65,7 @@ func (args *args) validArgs() error {
 		return err
 	}
 
-	basetime, err := time.ParseInLocation(params.Fmtarg, os.Args[2], time.Local)
+	basetime, err := time.ParseInLocation(fmtArg, os.Args[2], time.Local)
 	if err != nil {
 		return err
 	}
@@ -74,14 +83,14 @@ func (args *args) validArgs() error {
 		}
 	}
 
-	args.Csvfile = csvfile
-	args.Basetime = basetime
-	args.Incdays = incdays
-	args.Outpath = outpath
+	args.csvfile = csvfile
+	args.basetime = basetime
+	args.incdays = incdays
+	args.outpath = outpath
 
 	return nil
 }
 
 func (args *args) inctime() time.Time {
-	return args.Basetime.AddDate(0, 0, args.Incdays)
+	return args.basetime.AddDate(0, 0, args.incdays)
 }

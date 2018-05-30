@@ -14,18 +14,22 @@ import (
 	"time"
 )
 
-var jsn bool
+var flagJSON bool
 
 func init() {
-	flag.BoolVar(&jsn, "json", false, usagejson)
+	flag.BoolVar(&flagJSON, "json", false, usageJSON)
 }
 
 func main() {
 	flag.Parse()
 
-	jsonfile := filepath.Base(os.Args[0]) + ".json"
+	jsonfile := jsonName()
 
-	if jsn {
+	if flagJSON {
+		if len(os.Args) != 2 {
+			usage()
+			os.Exit(2)
+		}
 		if err := params.writeJSON(jsonfile); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
@@ -41,57 +45,57 @@ func main() {
 	}
 
 	var args args
-	if err := args.validArgs(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if err := args.validArgs(params.Fmtarg); err != nil {
+		if err == ErrUsage {
+			usage()
+		} else {
+			fmt.Fprintln(os.Stderr, err)
+		}
 		os.Exit(2)
 	}
-
-	layout := datetime{params.Date.Format, params.Time.Format}.String()
-	period := sort(layout, args.Basetime, args.inctime())
 
 	lines := make([]string, 0)
 
 	columns := columns{params.Date.Column, params.Time.Column}
-	lines, err := selectRows(lines, args.Csvfile, columns, period)
+	dt := datetime(params.Date.Format, params.Time.Format)
+	period := sort(args.basetime, args.inctime(), dt)
+	lines, err := selectRows(lines, args.csvfile, columns, period)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	outfile := outName(filepath.Base(args.Csvfile), 1)
-	if err := output(args.Outpath, outfile, lines, rtncd()); err != nil {
+	outfile := outName(filepath.Base(args.csvfile), 1)
+	if err := output(args.outpath, outfile, lines, rtncd()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-// Period struct.
-type period struct {
-	from string
-	to   string
+func jsonName() string {
+	base := filepath.Base(os.Args[0])
+	return base[:len(base)-len(filepath.Ext(base))] + ".json"
 }
 
-// Columns struct.
+func datetime(date, time string) string {
+	return fmt.Sprintf("%s %s", date, time)
+}
+
 type columns struct {
 	date int
 	time int
 }
 
-// Datetime struct.
-type datetime struct {
-	date string
-	time string
+type period struct {
+	from string
+	to   string
 }
 
-func (dt datetime) String() string {
-	return fmt.Sprintf("%s %s", dt.date, dt.time)
-}
-
-func sort(layout string, t1, t2 time.Time) period {
+func sort(t1, t2 time.Time, layout string) period {
 	s1 := t1.Format(layout)
 	s2 := t2.Format(layout)
 	if s1 > s2 {
-		s1, s2 = s2, s1
+		return period{s2, s1}
 	}
 	return period{s1, s2}
 }
@@ -133,7 +137,7 @@ func target(text string, cols columns, period period) (bool, error) {
 		return false, nil
 	}
 
-	dt := datetime{rcd[cols.date], rcd[cols.time]}.String()
+	dt := datetime(rcd[cols.date], rcd[cols.time])
 	if dt < period.from || period.to < dt {
 		return false, nil
 	}
