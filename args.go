@@ -15,6 +15,8 @@ const (
 
 Default columns on the csv file is the date column is 0 and the time column is 1.
 
+When selcsvdt.json file exists in current directory, selcvsdt read it when start.
+
 An output file name is added a dot and a sequence number after the csv file name.
 
 Usage:
@@ -35,6 +37,19 @@ Each arguments are:
 	[<outpath>]
 		an output file path. default is ".".
 
+When you execute with -json switch, A parameter json file is created in current directory. 
+
+{
+	"fmtarg": "200601021504",
+	"date": {
+		"column": 0,
+		"format": "2006-01-02"
+	},
+	"time": {
+		"column": 1,
+		"format": "15:04"
+	}
+}
 `
 )
 
