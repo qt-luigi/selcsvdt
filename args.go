@@ -9,33 +9,30 @@ import (
 )
 
 const (
-	appName   = "selcvsdt"
 	usageJSON = "output datetime params json file."
-	usageMsg  = `%s selects lines from a csv file by specified range of date and time items.
+	usageMsg  = `selcsvdt selects lines from a csv file by specified range of date and time items.
 
 Default columns on the csv file is the date column is 0 and the time column is 1.
 
 When selcsvdt.json file exists in current directory, selcvsdt read it when start.
 
-An output file name is added a dot and a sequence number after the csv file name.
-
 Usage:
 
-	%s -json
-	%s <csvfile> <basetime> <incdays> [<outpath>]
+	selcsvdt -json
+	selcsvdt <csvpath> <basetime> <incdays>
 
 Each arguments are:
 
 	-json
 		%s
-	<csvfile>
+
+	<csvpath>
 		a reading csv file.
 	<basetime>
-		a basetime (YYYYMMDDHHmm).
+		a basetime. default format is YYYYMMDDHHmm.
+		To change fmtarg item in json file.
 	<incdays>
 		add days to the basetime.
-	[<outpath>]
-		an output file path. default is ".".
 
 When you execute with -json switch, A parameter json file is created in current directory. 
 
@@ -59,24 +56,23 @@ var (
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, usageMsg, appName, appName, appName, usageJSON)
+	fmt.Fprintf(os.Stderr, usageMsg, usageJSON)
 }
 
 // Args struct.
 type args struct {
-	csvfile  string
+	csvpath  string
 	basetime time.Time
 	incdays  int
-	outpath  string
 }
 
 func (args *args) validArgs(fmtArg string) error {
-	if ln := len(os.Args); ln != 4 && ln != 5 {
+	if len(os.Args) != 4 {
 		return ErrUsage
 	}
 
-	csvfile := os.Args[1]
-	if fi, err := os.Stat(csvfile); err != nil || fi.IsDir() {
+	csvpath := os.Args[1]
+	if _, err := os.Stat(csvpath); err != nil {
 		return err
 	}
 
@@ -90,18 +86,9 @@ func (args *args) validArgs(fmtArg string) error {
 		return err
 	}
 
-	outpath := "."
-	if len(os.Args) == 5 {
-		outpath = os.Args[4]
-		if fi, err := os.Stat(outpath); err != nil || !fi.IsDir() {
-			return err
-		}
-	}
-
-	args.csvfile = csvfile
+	args.csvpath = csvpath
 	args.basetime = basetime
 	args.incdays = incdays
-	args.outpath = outpath
 
 	return nil
 }

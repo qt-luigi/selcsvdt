@@ -6,10 +6,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -54,21 +53,16 @@ func main() {
 		os.Exit(2)
 	}
 
-	lines := make([]string, 0)
-
 	columns := columns{params.Date.Column, params.Time.Column}
 	dt := datetime(params.Date.Format, params.Time.Format)
 	period := sort(args.basetime, args.inctime(), dt)
-	lines, err := selectRows(lines, args.csvfile, columns, period)
-	if err != nil {
+	if lines, err := selectRows(args.csvpath, columns, period); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
-	}
-
-	outfile := outName(filepath.Base(args.csvfile), 1)
-	if err := output(args.outpath, outfile, lines, rtncd()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	} else {
+		for _, line := range lines {
+			fmt.Println(line)
+		}
 	}
 }
 
@@ -100,12 +94,39 @@ func sort(t1, t2 time.Time, layout string) period {
 	return period{s1, s2}
 }
 
-func selectRows(lines []string, csvfile string, cols columns, period period) ([]string, error) {
-	f, err := os.Open(csvfile)
+func selectRows(csvpath string, cols columns, period period) ([]string, error) {
+	if fi, err := os.Stat(csvpath); err != nil {
+		return nil, err
+	} else if !fi.IsDir() {
+		return read(csvpath, cols, period)
+	} else {
+		fis, err := ioutil.ReadDir(csvpath)
+		if err != nil {
+			return nil, err
+		}
+		lines := make([]string, 0)
+		for _, fi := range fis {
+			if !fi.IsDir() {
+				fn := filepath.Join(csvpath, fi.Name())
+				if ss, err := read(fn, cols, period); err != nil {
+					return nil, err
+				} else {
+					lines = append(lines, ss...)
+				}
+			}
+		}
+		return lines, nil
+	}
+}
+
+func read(filename string, cols columns, period period) ([]string, error) {
+	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+
+	lines := make([]string, 0)
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -143,31 +164,4 @@ func target(text string, cols columns, period period) (bool, error) {
 	}
 
 	return true, nil
-}
-
-func outName(basename string, seq int) string {
-	return basename + "." + strconv.Itoa(seq)
-}
-
-func rtncd() string {
-	if runtime.GOOS == "windows" {
-		return "\r\n"
-	}
-	return "\n"
-}
-
-func output(path, file string, datas []string, rtncd string) error {
-	f, err := os.Create(filepath.Join(path, file))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	for _, data := range datas {
-		if _, err := f.WriteString(data + rtncd); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
